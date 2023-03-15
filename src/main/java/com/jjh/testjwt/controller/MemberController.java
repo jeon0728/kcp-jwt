@@ -2,9 +2,11 @@ package com.jjh.testjwt.controller;
 
 import com.jjh.testjwt.domain.MemberLoginRequestDto;
 import com.jjh.testjwt.domain.TokenInfo;
+import com.jjh.testjwt.domain.TokenRequestDto;
 import com.jjh.testjwt.service.MemberService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,5 +30,11 @@ public class MemberController {
     @PostMapping("/test")
     public String test() {
         return "success";
+    }
+
+    @PostMapping("/reissue")
+    public ResponseEntity reissue(@RequestBody TokenRequestDto tokenRequestDto) {
+        ResponseEntity responseEntity = memberService.reissue(tokenRequestDto);
+        return responseEntity;
     }
 }

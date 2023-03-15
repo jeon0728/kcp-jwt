@@ -47,7 +47,7 @@ public class SpringSecurityConfig {
                 .headers().frameOptions().disable()
                 .and()
                 .authorizeRequests()
-                .antMatchers("/members/login", "/h2-console/**").permitAll()
+                .antMatchers("/members/login", "/h2-console/**", "/members/reissue").permitAll()
                 .antMatchers("/members/test").hasRole("USER")
                 .anyRequest().authenticated()
                 .and()

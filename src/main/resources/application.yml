@@ -18,3 +18,7 @@ spring:
     jwt:
         header: Authorization
         secret: VlwEyVBsYt9V7zq57TejMnVUyzblYcfPQye08f7MGVA9XkHa
+    redis:
+        host: localhost
+        port: 6379
+
