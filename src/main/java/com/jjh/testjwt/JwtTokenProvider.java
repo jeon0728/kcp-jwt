@@ -1,9 +1,11 @@
 package com.jjh.testjwt;
 
+import com.fasterxml.jackson.databind.util.JSONPObject;
 import com.jjh.testjwt.domain.TokenInfo;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -12,8 +14,11 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.crypto.SecretKey;
+import javax.servlet.http.HttpServletRequest;
 import java.security.Key;
 import java.util.Arrays;
 import java.util.Base64;
@@ -42,15 +47,31 @@ public class JwtTokenProvider {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
+        HttpServletRequest req = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
+        String ip = req.getHeader("X-FORWARDED-FOR");
+        ip = req.getRemoteAddr();
+
         long now = (new Date()).getTime();
         // Access Token 생성
-        Date accessTokenExpiresIn = new Date(now + 120000); //2분
+        Date accessTokenExpiresIn = new Date(now + 60000 * 5); //5분
+        Date allExpiresIn = new Date(now + 60000 * 15); //15분
+        Date issueTime = new Date(now);
         String accessToken = Jwts.builder()
                 .setSubject(authentication.getName())
+                .claim("userId", authentication.getName())
+                .claim("userIp", ip)
+                .claim("issueTime", issueTime)
                 .claim("auth", authorities)
                 .setExpiration(accessTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
+
+        // redis에 저장될 json 데이터 생성
+        JSONObject userInfo = new JSONObject();
+        userInfo.put("userId", authentication.getName());
+        userInfo.put("userIp", ip);
+        userInfo.put("issueTime", issueTime.getTime());
+        userInfo.put("readOnly", false);
 
         // Refresh Token 생성
         Date refreshTokenExpiresIn = new Date(now + 86400000); //1일
@@ -62,9 +83,11 @@ public class JwtTokenProvider {
         return TokenInfo.builder()
                 .grantType("Bearer")
                 .accessToken(accessToken)
-                .refreshToken(refreshToken)
+                .userInfo(userInfo)
+                .allExpiresIn(allExpiresIn.getTime())
+                //.refreshToken(refreshToken)
                 .accessTokenExpiresIn(accessTokenExpiresIn.getTime())
-                .refreshTokenExpiresIn(refreshTokenExpiresIn.getTime())
+                //.refreshTokenExpiresIn(refreshTokenExpiresIn.getTime())
                 .build();
     }
 

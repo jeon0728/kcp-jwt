@@ -1,15 +1,22 @@
 package com.jjh.testjwt.service;
 
+import com.fasterxml.jackson.databind.util.JSONPObject;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.jjh.testjwt.JwtTokenProvider;
 import com.jjh.testjwt.domain.TokenInfo;
 import com.jjh.testjwt.domain.TokenRequestDto;
 import com.jjh.testjwt.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import org.apache.tomcat.util.json.JSONParser;
+import org.json.JSONObject;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.web.server.authentication.AnonymousAuthenticationWebFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,33 +49,68 @@ public class MemberService {
 
         //4. redis에 RT 저장
         redisTemplate.opsForValue()
-                .set("RefreshToken:" + authentication.getName(), tokenInfo.getRefreshToken(),
-                        tokenInfo.getRefreshTokenExpiresIn() - new Date().getTime(), TimeUnit.MILLISECONDS);
+                .set(tokenInfo.getAccessToken(), tokenInfo.getUserInfo().toString(),
+                        tokenInfo.getAllExpiresIn(), TimeUnit.MILLISECONDS);
+
+//        redisTemplate.opsForValue()
+//                .set("RefreshToken:" + authentication.getName(), tokenInfo.getRefreshToken(),
+//                        tokenInfo.getRefreshTokenExpiresIn(), TimeUnit.MILLISECONDS);
 
         return tokenInfo;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public ResponseEntity<?> reissue(TokenRequestDto tokenRequestDto) {
-        if (!jwtTokenProvider.validateToken(tokenRequestDto.getRefreshToken())) {
-            return ResponseEntity.badRequest().body("Refresh Token이 유효하지 않습니다.");
-            //throw new IllegalStateException("Refresh Token이 유효하지 않습니다.");
-        }
+//        if (!jwtTokenProvider.validateToken(tokenRequestDto.getRefreshToken())) {
+//            return ResponseEntity.badRequest().body("Refresh Token이 유효하지 않습니다.");
+//        }
 
         Authentication authentication = jwtTokenProvider.getAuthentication(tokenRequestDto.getAccessToken());
 
-        //Redis에서 Refresh Token 가져오기
-        String refreshToken = (String) redisTemplate.opsForValue().get("RefreshToken:" + authentication.getName());
-        if(!refreshToken.equals(tokenRequestDto.getRefreshToken())) {
-            return ResponseEntity.badRequest().body("토큰의 유저 정보가 일치하지 않습니다.");
+        //Redis에서 json object 가져오기
+        String strJson = (String) redisTemplate.opsForValue().get(tokenRequestDto.getAccessToken());
+
+        if (strJson == null) {
+            return ResponseEntity.badRequest().body("해당 토큰의 정보가 존재하지 않습니다.");
         }
 
-        TokenInfo tokenInfo = jwtTokenProvider.generateToken(authentication);
-        //새로 발급된 RefreshToken Redis에 저장
-        redisTemplate.opsForValue()
-                .set("RefreshToken:" + authentication.getName(), tokenInfo.getRefreshToken(),
-                        tokenInfo.getRefreshTokenExpiresIn(), TimeUnit.MILLISECONDS);
+        JsonParser parser = new JsonParser();
+        JsonElement element = parser.parse(strJson);
 
+        long issueTime = Long.parseLong(element.getAsJsonObject().get("issueTime").toString());
+        String userIp = element.getAsJsonObject().get("userIp").toString();
+
+        long now = (new Date()).getTime();
+        //Date issue = new Date(issueTime);
+        Date current = new Date(now);
+
+        // Date -> 밀리세컨즈
+        long issueTimeMil1 = issueTime;
+        long currentTimeMil2 = current.getTime();
+
+        // 비교
+        long diff = currentTimeMil2 - issueTimeMil1;
+        long diffMin = diff / (1000 * 60);
+
+        //토큰 전체 시간이 15분이 지나지 않은 경우 json object readOnly 값 true 로 변경
+        if(diffMin < 15) {
+            //redis 수정
+            JSONObject userInfo = new JSONObject();
+            userInfo.put("userId", authentication.getName());
+            userInfo.put("userIp", userIp);
+            userInfo.put("issueTime", issueTime);
+            userInfo.put("readOnly", true);
+            //기존 AccessToken, json object Redis에 다시 저장
+            redisTemplate.opsForValue()
+                    .set(tokenRequestDto.getAccessToken(), userInfo.toString(),
+                            current.getTime(), TimeUnit.MILLISECONDS);
+        } else {}
+        //15분과 상관없이 AccessToken, json object 재발급
+        TokenInfo tokenInfo = jwtTokenProvider.generateToken(authentication);
+        //새로 발급된 AccessToken, json object Redis에 저장
+        redisTemplate.opsForValue()
+                .set(tokenInfo.getAccessToken(), tokenInfo.getUserInfo().toString(),
+                        tokenInfo.getAllExpiresIn(), TimeUnit.MILLISECONDS);
         return ResponseEntity.ok(tokenInfo);
     }
 }

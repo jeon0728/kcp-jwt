@@ -3,6 +3,7 @@ package com.jjh.testjwt.domain;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import org.json.JSONObject;
 
 import java.util.Date;
 
@@ -16,5 +17,7 @@ public class TokenInfo {
     private String refreshToken;
     private long accessTokenExpiresIn;
     private long refreshTokenExpiresIn;
+    private long allExpiresIn;
+    private JSONObject userInfo;
 
 }
