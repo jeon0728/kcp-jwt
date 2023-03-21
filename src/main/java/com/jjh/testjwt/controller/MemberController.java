@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -21,9 +23,14 @@ public class MemberController {
 
     @PostMapping("/login")
     public TokenInfo login(@RequestBody MemberLoginRequestDto memberLoginRequestDto) {
+        TokenInfo tokenInfo = null;
         String memberId = memberLoginRequestDto.getMemberId();
         String password = memberLoginRequestDto.getPassword();
-        TokenInfo tokenInfo = memberService.login(memberId, password);
+        HashMap<String, Object> result = memberService.callApi("https://jsonplaceholder.typicode.com/posts");
+        if (result.get("statusCode").equals(200)) {
+            tokenInfo = memberService.login(memberId, password);
+        } else {}
+
         return tokenInfo;
     }
 
