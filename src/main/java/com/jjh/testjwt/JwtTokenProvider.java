@@ -71,7 +71,7 @@ public class JwtTokenProvider {
         userInfo.put("userId", authentication.getName());
         userInfo.put("userIp", ip);
         userInfo.put("issueTime", issueTime.getTime());
-        userInfo.put("readOnly", false);
+        userInfo.put("readOnly", "N");
 
         // Refresh Token 생성
         Date refreshTokenExpiresIn = new Date(now + 86400000); //1일

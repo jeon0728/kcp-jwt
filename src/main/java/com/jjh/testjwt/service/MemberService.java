@@ -12,16 +12,16 @@ import lombok.RequiredArgsConstructor;
 import org.apache.tomcat.util.json.JSONParser;
 import org.json.JSONObject;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.server.authentication.AnonymousAuthenticationWebFilter;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
@@ -70,10 +70,6 @@ public class MemberService {
 
     @Transactional(rollbackFor = Exception.class)
     public ResponseEntity<?> reissue(TokenRequestDto tokenRequestDto) {
-//        if (!jwtTokenProvider.validateToken(tokenRequestDto.getRefreshToken())) {
-//            return ResponseEntity.badRequest().body("Refresh Token이 유효하지 않습니다.");
-//        }
-
         Authentication authentication = jwtTokenProvider.getAuthentication(tokenRequestDto.getAccessToken());
 
         //Redis에서 json object 가져오기
@@ -88,6 +84,7 @@ public class MemberService {
 
         long issueTime = Long.parseLong(element.getAsJsonObject().get("issueTime").toString());
         String userIp = element.getAsJsonObject().get("userIp").toString();
+        String readOnly = element.getAsJsonObject().get("readOnly").toString();
 
         long now = (new Date()).getTime();
         //Date issue = new Date(issueTime);
@@ -102,13 +99,13 @@ public class MemberService {
         long diffMin = diff / (1000 * 60);
 
         //토큰 전체 시간이 15분이 지나지 않은 경우 json object readOnly 값 true 로 변경
-        if(diffMin < 15) {
+        if(diffMin < 15 && readOnly.equals("N")) {
             //redis 수정
             JSONObject userInfo = new JSONObject();
             userInfo.put("userId", authentication.getName());
             userInfo.put("userIp", userIp);
             userInfo.put("issueTime", issueTime);
-            userInfo.put("readOnly", true);
+            userInfo.put("readOnly", "Y");
             //기존 AccessToken, json object Redis에 다시 저장
             redisTemplate.opsForValue()
                     .set(tokenRequestDto.getAccessToken(), userInfo.toString(),
@@ -123,20 +120,23 @@ public class MemberService {
         return ResponseEntity.ok(tokenInfo);
     }
 
-    public HashMap<String, Object> callApi(String url) {
-        //Spring restTemplate
+    public HashMap<String, Object> callApi(String url, String id) {
         HashMap<String, Object> result = new HashMap<String, Object>();
-        ResponseEntity<Object> resultMap = new ResponseEntity<>(null,null,200);
 
         try {
             RestTemplate restTemplate = new RestTemplate();
 
             HttpHeaders header = new HttpHeaders();
-            HttpEntity<?> entity = new HttpEntity<>(header);
-
+            header.setContentType(MediaType.APPLICATION_JSON);
+            HashMap<String, String> body = new HashMap<String, String>();
+            body.put("id", id);
+            body.put("pwd", "o");
+            //HttpEntity<?> entity = new HttpEntity<>(header);
+            HttpEntity<?> entity = new HttpEntity<>(body, header);
             UriComponents uri = UriComponentsBuilder.fromHttpUrl(url).build();
 
-            ResponseEntity<?> returnMap = restTemplate.exchange(uri.toString(), HttpMethod.GET, entity, Object.class);
+            //ResponseEntity<?> returnMap = restTemplate.exchange(uri.toString(), HttpMethod.GET, entity, Object.class);
+            ResponseEntity<?> returnMap = restTemplate.exchange(uri.toString(), HttpMethod.POST, entity, Object.class);
 
             result.put("statusCode", returnMap.getStatusCodeValue()); //http status code를 확인
             result.put("header", returnMap.getHeaders()); //헤더 정보 확인

@@ -26,7 +26,8 @@ public class MemberController {
         TokenInfo tokenInfo = null;
         String memberId = memberLoginRequestDto.getMemberId();
         String password = memberLoginRequestDto.getPassword();
-        HashMap<String, Object> result = memberService.callApi("https://jsonplaceholder.typicode.com/posts");
+        //HashMap<String, Object> result = memberService.callApi("https://jsonplaceholder.typicode.com/posts");
+        HashMap<String, Object> result = memberService.callApi("http://localhost:8080/login", memberId);
         if (result.get("statusCode").equals(200)) {
             tokenInfo = memberService.login(memberId, password);
         } else {}
