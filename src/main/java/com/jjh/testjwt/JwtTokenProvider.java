@@ -25,6 +25,7 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
 import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Slf4j
 @Component
@@ -62,6 +63,7 @@ public class JwtTokenProvider {
                 .claim("userIp", ip)
                 .claim("issueTime", issueTime)
                 .claim("auth", authorities)
+                .claim("uuid", UUID.randomUUID().toString())
                 .setExpiration(accessTokenExpiresIn)
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
