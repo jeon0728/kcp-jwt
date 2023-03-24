@@ -19,7 +19,7 @@ spring:
         header: Authorization
         secret: VlwEyVBsYt9V7zq57TejMnVUyzblYcfPQye08f7MGVA9XkHa
     redis:
-        host: localhost
+        host: 127.0.0.1
         port: 6379
 server:
     port: 8081

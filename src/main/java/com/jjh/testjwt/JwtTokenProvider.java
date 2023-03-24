@@ -1,7 +1,7 @@
 package com.jjh.testjwt;
 
-import com.fasterxml.jackson.databind.util.JSONPObject;
 import com.jjh.testjwt.domain.TokenInfo;
+import com.jjh.testjwt.utill.UtillService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -14,18 +14,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
-import javax.crypto.SecretKey;
-import javax.servlet.http.HttpServletRequest;
 import java.security.Key;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Collection;
-import java.util.Date;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.UUID;
 
 @Slf4j
 @Component
@@ -34,8 +26,11 @@ public class JwtTokenProvider {
 
     private final Key key;
 
+    private final UtillService utillService;
+
     //jwt 사용할 시크릿키 생성
-    public JwtTokenProvider(@Value("${spring.jwt.secret}") String secretKey) {
+    public JwtTokenProvider(@Value("${spring.jwt.secret}") String secretKey, UtillService utillService) {
+        this.utillService = utillService;
         Base64.Decoder decoder = Base64.getDecoder();
         byte[] keyBytes = decoder.decode(secretKey);
         this.key = Keys.hmacShaKeyFor(keyBytes);
@@ -48,9 +43,9 @@ public class JwtTokenProvider {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
-        HttpServletRequest req = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-        String ip = req.getHeader("X-FORWARDED-FOR");
-        ip = req.getRemoteAddr();
+        //HttpServletRequest req = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
+        String ip = utillService.getClientIP();
+        //ip = req.getRemoteAddr();
 
         long now = (new Date()).getTime();
         // Access Token 생성
@@ -137,4 +132,5 @@ public class JwtTokenProvider {
             return e.getClaims();
         }
     }
+
 }
